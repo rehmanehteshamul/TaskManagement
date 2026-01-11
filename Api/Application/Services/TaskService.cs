@@ -4,6 +4,7 @@ using AutoMapper;
 using Entities.Entities;
 using Entities.Interfaces;
 using Domain.Models;
+using Application.Common;
 
 namespace Application.Services
 {
@@ -29,6 +30,8 @@ namespace Application.Services
 
         public async Task<TaskDto> CreateAsync(CreateTaskRequest request)
         {
+            if (request.DueDate <= DateTime.UtcNow)
+                throw new BusinessException("Due date must be in the future");
             var taskEntity = _mapper.Map<TaskItem>(request); 
             taskEntity.CreatedAt = DateTime.UtcNow;
 

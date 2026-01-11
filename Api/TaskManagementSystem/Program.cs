@@ -1,9 +1,11 @@
 
+using Application.Common;
 using Application.Interfaces;
 using Application.Mappings;
 using Application.Services;
 using Entities.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -25,6 +27,7 @@ builder.Services.AddSwaggerGen();
 var _GetConnectionString = builder.Configuration.GetConnectionString("connMSSQL");
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(_GetConnectionString));
 builder.Services.AddAutoMapper(typeof(TaskMappingProfile));
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ReactPolicy",
@@ -69,7 +72,34 @@ var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.ContentType = "application/json";
 
+        var exception = context.Features
+            .Get<IExceptionHandlerFeature>()?.Error;
+
+        if (exception is BusinessException)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                success = false,
+                message = exception.Message
+            });
+            return;
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            success = false,
+            message = "An unexpected error occurred"
+        });
+    });
+});
 app.MapControllers();
 
 app.Run();
